@@ -34,7 +34,7 @@ spec:
     listKind: NodeCostList
     plural: nodescost
     shortNames:
-    - pc
+    - nc
     singular: nodecost
   scope: Cluster
   validation:

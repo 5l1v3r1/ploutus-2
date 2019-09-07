@@ -34,7 +34,7 @@ spec:
     listKind: AppCostList
     plural: appscost
     shortNames:
-    - pc
+    - ac
     singular: appcost
   scope: Namespaced
   validation:

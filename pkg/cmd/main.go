@@ -37,6 +37,7 @@ type PodMetricsList struct {
 	} `json:"items"`
 }
 
+
 type PodDetails struct {
 	Name         string
 	Labels       map[string]string
@@ -46,7 +47,14 @@ type PodDetails struct {
 	RequestedCPU float64
 }
 
-func getMetrics(clientset *kubernetes.Clientset) (map[string]PodDetails, map[string][]PodDetails, map[string][]PodDetails, error) {
+
+type NodeDetails struct {
+	Name string
+	Cost float64
+	Cores float64
+}
+
+func getMetrics(clientset *kubernetes.Clientset, nodeDetails map[string]NodeDetails ) (map[string]PodDetails, map[string][]PodDetails, map[string][]PodDetails, error) {
 	var pods PodMetricsList
 
 	podLookUp := make(map[string]PodDetails)
@@ -77,14 +85,12 @@ func getMetrics(clientset *kubernetes.Clientset) (map[string]PodDetails, map[str
 				acpu = acpu + float64(i)
 			}
 
+			//
+			cores := nodeDetails[pd.NodeName].Cores
 			//Get price e.g. 10 dollar per hour per core on an 8 core vm
-			// price := 10.0 / 60.0 / 8.0
-
-			//Get how long since last update e.g. 5mins
-			// interval := 5.0
-
-			pd.ActualCPU = acpu / 1000000000 // * price * interval
-			pd.RequestedCPU = pd.RequestedCPU / 1000 //* price * interval
+			price := nodeDetails[pd.NodeName].Cost / cores
+			pd.ActualCPU = acpu / 1000000000  * price
+			pd.RequestedCPU = pd.RequestedCPU * price
 			podLookUp[v.Metadata.Name] = pd
 			if len(nodeLookUp[pd.NodeName]) < 1 {
 				nodeLookUp[pd.NodeName] = make([]PodDetails, 0)
@@ -108,14 +114,10 @@ func getPods(clientset *kubernetes.Clientset, name string, namespace string) (Po
 	}
 	rcpu := 0.0
 	for _, v := range pod.Spec.Containers {
-		var tmpq string
+
 		q := v.Resources.Requests["cpu"]
-		if len(q.String()) > 1 {
-			tmpq = q.String()[:len(q.String())-1]
-		} else {
-			tmpq = q.String()
-		}
-		j, err := strconv.Atoi(tmpq)
+		r := q.MilliValue()
+		j := float64(r)/1000.0
 		if err != nil {
 			fmt.Printf("ERROR RequestCPU \t\t %v \n", v)
 		}
@@ -131,9 +133,39 @@ func getPods(clientset *kubernetes.Clientset, name string, namespace string) (Po
 
 }
 
+func getNodeDetails(clientset *kubernetes.Clientset) map[string]NodeDetails {
+	toReturn := make(map[string]NodeDetails)
+	nodesData, err := clientset.CoreV1().Nodes().List(metav1.ListOptions{})
+
+	if err != nil {
+		fmt.Printf("ERROR Getting Nodes \t\t %v \n", err)
+	}
+	// var nodes NodeList
+	// err = json.Unmarshal(nodesData, &nodes)
+
+	for _,v := range nodesData.Items {
+		cpu := v.Status.Allocatable["cpu"]
+		cpuInt,_ :=cpu.AsInt64()
+		cpuFloat := float64(cpuInt)
+		cost :=  cpuFloat
+		if v.Labels["cost"] != "" {
+			cost,err = strconv.ParseFloat(v.Labels["cost"],64)
+			if err != nil {
+				fmt.Printf("Error retrieving price, setting price to the no of cores", err)
+			}
+		}
+		toReturn[v.Name] = NodeDetails{
+			Name: v.Name,
+			Cost: cost,
+			Cores: cpuFloat,
+		}
+	}
+	return toReturn
+}
+
 func main() {
 
-	kubeconfig := ".kube/config"
+	kubeconfig := "/Users/chris/.kube/config"
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
 		panic(err.Error())
@@ -142,13 +174,14 @@ func main() {
 	if err != nil {
 		panic(err.Error())
 	}
-	podLookUp, appLookUp, nodeLookUp, err := getMetrics(clientset)
+	writePodData(clientset)
+	nodeDetails := getNodeDetails(clientset)
+	podLookUp, appLookUp, nodeLookUp, err := getMetrics(clientset,nodeDetails)
 	if err != nil {
 		panic(err.Error())
 	}
 	for _, m := range podLookUp {
-		fmt.Printf("%v \t\t %v \t\t ", m.ActualCPU, m.RequestedCPU)
-		fmt.Printf("%v \t\t %v \n", m.Name, m.Namespace)
+		fmt.Printf("%v \t\t %v \t\t %v \t\t %v \n", m.ActualCPU, m.RequestedCPU, m.Name, m.Namespace)
 	}
 	for name, app := range appLookUp {
 		acpu := 0.0
@@ -167,5 +200,11 @@ func main() {
 			rcpu = rcpu + pod.RequestedCPU
 		}
 		fmt.Printf("%v\t\t%v\t\t%v\n", name, acpu, rcpu)
+	}
+}
+func writePodData(clientset *kubernetes.Clientset) {
+	_, err := clientset.RESTClient().Get().AbsPath("apis/apiextensions.k8s.io/v1beta1/podscost.cminion.com").DoRaw()
+	if err != nil {
+		panic(err.Error())
 	}
 }
