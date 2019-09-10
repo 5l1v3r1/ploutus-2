@@ -4,28 +4,28 @@ metadata:
   name: appscost.cminion.com
 spec:
   additionalPrinterColumns:
-  - JSONPath: .spec.total.hour.actual
+  - JSONPath: .total.hour.actual
     name: Actual Total Hour
     type: number
-  - JSONPath: .spec.total.hour.request
+  - JSONPath: .total.hour.request
     name: Request Total Hour
     type: number
-  - JSONPath: .spec.total.day.actual
+  - JSONPath: .total.day.actual
     name: Actual Total Day
     type: number
-  - JSONPath: .spec.total.day.request
+  - JSONPath: .total.day.request
     name: Request Total Day
     type: number
-  - JSONPath: .spec.total.month.actual
+  - JSONPath: .total.month.actual
     name: Actual Total Month
     type: number
-  - JSONPath: .spec.total.month.request
+  - JSONPath: .total.month.request
     name: Request Total Month
     type: number
-  - JSONPath: .spec.total.year.actual
+  - JSONPath: .total.year.actual
     name: Actual Total Year
     type: number
-  - JSONPath: .spec.total.year.request
+  - JSONPath: .total.year.request
     name: Request Total Year
     type: number
   group: cminion.com
@@ -35,6 +35,7 @@ spec:
     plural: appscost
     shortNames:
     - ac
+    - acost
     singular: appcost
   scope: Namespaced
   validation:
@@ -51,28 +52,44 @@ spec:
                   properties:
                     actual:
                       type: number
+                      format: float
                     request:
+                      type: number
+                      format: float
+                    time:
                       type: number
                 day:
                   type: object
                   properties:
                     actual:
                       type: number
+                      format: float
                     request:
+                      type: number
+                      format: float
+                    time:
                       type: number
                 month:
                   type: object
                   properties:
                     actual:
                       type: number
+                      format: float
                     request:
+                      type: number
+                      format: float
+                    time:
                       type: number
                 year:
                   type: object
                   properties:
                     actual:
                       type: number
+                      format: float
                     request:
+                      type: number
+                      format: float
+                    time:
                       type: number
             historicData:
               type: object
@@ -84,7 +101,11 @@ spec:
                     properties:
                       actual:
                         type: number
+                        format: float
                       request:
+                        type: number
+                        format: float
+                      time:
                         type: number
                 day:
                   type: array
@@ -93,7 +114,11 @@ spec:
                     properties:
                       actual:
                         type: number
+                        format: float
                       request:
+                        type: number
+                        format: float
+                      time:
                         type: number
                 month:
                   type: array
@@ -102,7 +127,11 @@ spec:
                     properties:
                       actual:
                         type: number
+                        format: float
                       request:
+                        type: number
+                        format: float
+                      time:
                         type: number
                 year:
                   type: array
@@ -111,7 +140,11 @@ spec:
                     properties:
                       actual:
                         type: number
+                        format: float
                       request:
+                        type: number
+                        format: float
+                      time:
                         type: number
   version: v1
   versions:
