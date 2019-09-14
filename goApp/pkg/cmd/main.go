@@ -5,13 +5,13 @@ import (
 	"fmt"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
+	// "k8s.io/client-go/tools/clientcmd"
 	"log"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
-	// "k8s.io/client-go/rest"
+	"k8s.io/client-go/rest"
 )
 
 // PodMetricsList : PodMetricsList
@@ -225,9 +225,9 @@ func getNodeDetails(clientset *kubernetes.Clientset) map[string]NodeDetails {
 
 func main() {
 	Log("Starting - Version " + version)
-	kubeconfig := "/Users/chris/.kube/config"
-	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
-	// config, err := rest.InClusterConfig()
+	// kubeconfig := "/Users/chris/.kube/config"
+	// config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+	config, err := rest.InClusterConfig()
 	if err != nil {
 		panic(err.Error())
 	}
@@ -483,7 +483,6 @@ func writeAppData(clientset *kubernetes.Clientset, nodeDetails map[string][]PodD
 
 func (this *CostItem) WorkOutAverages() {
 	Log("WorkOutAverages for " + this.Metadata.Name)
-	//Remove all hour entries over an hour old
 	this.Today = time.Now()
 
 	// today.Sub(today.AddDate(0, -1, 0)).Seconds()
