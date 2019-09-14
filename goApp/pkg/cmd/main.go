@@ -488,11 +488,11 @@ func (this *CostItem) WorkOutAverages() {
 	// today.Sub(today.AddDate(0, -1, 0)).Seconds()
 	this.Total.Hour = *Average(this.HistoricData.Hour, this.Today.Add(-3.60000288*1000000000000), 60*60)
 	this.updateNextInterval("hour")
-	this.Total.Day = *Average(this.HistoricData.Day, this.Today.AddDate(0, 0, -1), this.Today.Sub(this.Today.AddDate(0, 0, -1)).Seconds())
+
 	this.updateNextInterval("day")
-	this.Total.Month = *Average(this.HistoricData.Month, this.Today.AddDate(0, -1, 0), this.Today.Sub(this.Today.AddDate(0, -1, 0)).Seconds())
+
 	this.updateNextInterval("year")
-	this.Total.Year = *Average(this.HistoricData.Year, this.Today.AddDate(-1, 0, 0), this.Today.Sub(this.Today.AddDate(-1, 0, 0)).Seconds())
+
 	this.clean()
 }
 func (this *CostItem) clean() {
@@ -564,16 +564,19 @@ func (this *CostItem) updateNextInterval(unit string) {
 	if (unit == "hour") {
 		if time.Unix(this.Total.Day.Time, 0).Before(this.Today.Add(-60*60*1000000000000)) {
 			this.HistoricData.Day  = append(this.HistoricData.Day, this.Total.Hour)
+			this.Total.Day = *Average(this.HistoricData.Day, this.Today.AddDate(0, 0, -1), this.Today.Sub(this.Today.AddDate(0, 0, -1)).Seconds())
 		}
 	}
 	if (unit == "day") {
 		if time.Unix(this.Total.Month.Time, 0).Before(this.Today.AddDate(0, 0, -1)) {
 			this.HistoricData.Month  = append(this.HistoricData.Month, this.Total.Day)
+			this.Total.Month = *Average(this.HistoricData.Month, this.Today.AddDate(0, -1, 0), this.Today.Sub(this.Today.AddDate(0, -1, 0)).Seconds())
 		}
 	}
 	if (unit == "month") {
 		if time.Unix(this.Total.Year.Time, 0).Before(this.Today.AddDate(0, -1, 0)) {
 			this.HistoricData.Year  = append(this.HistoricData.Year, this.Total.Month)
+			this.Total.Year = *Average(this.HistoricData.Year, this.Today.AddDate(-1, 0, 0), this.Today.Sub(this.Today.AddDate(-1, 0, 0)).Seconds())
 		}
 	}
 }
