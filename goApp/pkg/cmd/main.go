@@ -5,14 +5,13 @@ import (
 	"fmt"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	// "k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/clientcmd"
 	"log"
+	"regexp"
 	"strconv"
 	"strings"
-	"regexp"
 	"time"
-	"k8s.io/client-go/rest"
-
+	// "k8s.io/client-go/rest"
 )
 
 // PodMetricsList : PodMetricsList
@@ -72,6 +71,7 @@ type CostItem struct {
 		Month []Data `json:"month"`
 		Year  []Data `json:"year"`
 	} `json:"historicData"`
+	Today time.Time
 }
 type Data struct {
 	Actual  float64 `json:"actual"`
@@ -95,7 +95,6 @@ type NodeDetails struct {
 }
 
 var version string
-
 
 func getMetrics(clientset *kubernetes.Clientset, nodeDetails map[string]NodeDetails) (map[string]PodDetails, map[string][]PodDetails, map[string][]PodDetails, error) {
 	Log("getMetrics")
@@ -146,9 +145,9 @@ func getMetrics(clientset *kubernetes.Clientset, nodeDetails map[string]NodeDeta
 				if pd.Labels["app"] != "" {
 					reg, err := regexp.Compile("[^a-zA-Z0-9]+")
 					if err != nil {
-							log.Fatal(err)
+						log.Fatal(err)
 					}
-					appNameNameSpace := strings.ToLower(reg.ReplaceAllString(pd.Labels["app"], "-"))+"_"+pd.Namespace
+					appNameNameSpace := strings.ToLower(reg.ReplaceAllString(pd.Labels["app"], "-")) + "_" + pd.Namespace
 					if len(appLookUp[appNameNameSpace]) < 1 {
 						appLookUp[appNameNameSpace] = make([]PodDetails, 0)
 					}
@@ -225,10 +224,10 @@ func getNodeDetails(clientset *kubernetes.Clientset) map[string]NodeDetails {
 }
 
 func main() {
-	Log("Starting - Version "+version)
-	// kubeconfig := "/Users/bob/.kube/config"
-	// config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
-	config, err := rest.InClusterConfig()
+	Log("Starting - Version " + version)
+	kubeconfig := "/Users/chris/.kube/config"
+	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+	// config, err := rest.InClusterConfig()
 	if err != nil {
 		panic(err.Error())
 	}
@@ -240,9 +239,6 @@ func main() {
 	nodeDetails := getNodeDetails(clientset)
 	podLookUp, appLookUp, nodeLookUp, err := getMetrics(clientset, nodeDetails)
 
-
-
-
 	if err != nil {
 		panic(err.Error())
 	}
@@ -252,17 +248,17 @@ func main() {
 	// appscostDone := make(chan bool)
 
 	// go func() {
-		writeNodeData(clientset, nodeLookUp, "nodescost", "NodeCost")
-		// nodescostDone <- true
+	writeNodeData(clientset, nodeLookUp, "nodescost", "NodeCost")
+	// nodescostDone <- true
 	// }()
- 	// go func() {
-		writePodData(clientset, podLookUp, "podscost", "PodCost")
+	// go func() {
+	writePodData(clientset, podLookUp, "podscost", "PodCost")
 	// 	podscostDone <- true
 	// }()
 	// <-nodescostDone
 	// <-podscostDone
 	// go func() {
-		writeAppData(clientset, appLookUp, "appscost", "AppCost")
+	writeAppData(clientset, appLookUp, "appscost", "AppCost")
 	// 	appscostDone <- true
 	// }()
 	//
@@ -308,7 +304,7 @@ func writePodData(clientset *kubernetes.Clientset, podLookUp map[string]PodDetai
 				panic(err.Error())
 			}
 			fmt.Println(string(json))
-			if b, err := clientset.RESTClient().Put().AbsPath("apis/cminion.com/v1/namespaces/"+pod.Namespace+"/" + tpe).Name(nodeItem.Metadata.Name ).Body(json).DoRaw(); err != nil {
+			if b, err := clientset.RESTClient().Put().AbsPath("apis/cminion.com/v1/namespaces/" + pod.Namespace + "/" + tpe).Name(nodeItem.Metadata.Name).Body(json).DoRaw(); err != nil {
 				fmt.Println(string(json))
 				fmt.Println(string(b))
 				panic(err.Error())
@@ -326,16 +322,15 @@ func writePodData(clientset *kubernetes.Clientset, podLookUp map[string]PodDetai
 			if err != nil {
 				panic(err.Error())
 			}
-			if b, err := clientset.RESTClient().Post().AbsPath("apis/cminion.com/v1/namespaces/"+pod.Namespace+"/" + tpe).Body(json).DoRaw(); err != nil {
+			if b, err := clientset.RESTClient().Post().AbsPath("apis/cminion.com/v1/namespaces/" + pod.Namespace + "/" + tpe).Body(json).DoRaw(); err != nil {
 				Log(string(json))
-				Log("apis/cminion.com/v1/namespaces/"+pod.Namespace+"/" + tpe)
+				Log("apis/cminion.com/v1/namespaces/" + pod.Namespace + "/" + tpe)
 				fmt.Println(string(b))
 				panic(err.Error())
 			}
 		}
 	}
 }
-
 
 func writeNodeData(clientset *kubernetes.Clientset, nodeDetails map[string][]PodDetails, tpe string, tpe2 string) {
 	Log("writeNodeData")
@@ -420,17 +415,17 @@ func writeAppData(clientset *kubernetes.Clientset, nodeDetails map[string][]PodD
 	nodesMap := make(map[string]CostItem)
 	reg, err := regexp.Compile("[^a-zA-Z0-9]+")
 	if err != nil {
-			log.Fatal(err)
+		log.Fatal(err)
 	}
 
 	for _, v := range nodescost.Items {
-		key := strings.ToLower(reg.ReplaceAllString(v.Metadata.Name,"-")+"_"+v.Metadata.Namespace)
+		key := strings.ToLower(reg.ReplaceAllString(v.Metadata.Name, "-") + "_" + v.Metadata.Namespace)
 		nodesMap[key] = v
 		fmt.Println(key)
 		fmt.Println(key)
 	}
 	for i, node := range nodeDetails {
-		fmt.Println(strings.ToLower(reg.ReplaceAllString(node[0].Labels["app"],"-")))
+		fmt.Println(strings.ToLower(reg.ReplaceAllString(node[0].Labels["app"], "-")))
 		acpu := 0.0
 		rcpu := 0.0
 		for _, pod := range node {
@@ -442,8 +437,8 @@ func writeAppData(clientset *kubernetes.Clientset, nodeDetails map[string][]PodD
 			Request: rcpu,
 			Time:    time.Now().Unix(),
 		}
-		Log("Name "+nodesMap[i].Metadata.Name)
-		Log("i  "+strings.ToLower(reg.ReplaceAllString(node[0].Labels["app"],"-")))
+		Log("Name " + nodesMap[i].Metadata.Name)
+		Log("i  " + strings.ToLower(reg.ReplaceAllString(node[0].Labels["app"], "-")))
 		if nodesMap[i].Metadata.Name != "" {
 			nodeItem := nodesMap[i]
 			Log(fmt.Sprintf("%v", cpu))
@@ -458,14 +453,14 @@ func writeAppData(clientset *kubernetes.Clientset, nodeDetails map[string][]PodD
 				panic(err.Error())
 			}
 			fmt.Println(string(json))
-			if b, err := clientset.RESTClient().Put().AbsPath("apis/cminion.com/v1/namespaces/"+nodeItem.Metadata.Namespace+"/" + tpe).Name(strings.ToLower(reg.ReplaceAllString(node[0].Labels["app"],"-"))).Body(json).DoRaw(); err != nil {
+			if b, err := clientset.RESTClient().Put().AbsPath("apis/cminion.com/v1/namespaces/" + nodeItem.Metadata.Namespace + "/" + tpe).Name(strings.ToLower(reg.ReplaceAllString(node[0].Labels["app"], "-"))).Body(json).DoRaw(); err != nil {
 				fmt.Println(string(json))
 				fmt.Println(string(b))
 				panic(err.Error())
 			}
 		} else {
 			newItem := CostItem{}
-			newItem.Metadata.Name = strings.ToLower(reg.ReplaceAllString(node[0].Labels["app"],"-"))
+			newItem.Metadata.Name = strings.ToLower(reg.ReplaceAllString(node[0].Labels["app"], "-"))
 			newItem.Kind = tpe2
 			newItem.Metadata.Namespace = node[0].Namespace
 			newItem.APIVersion = "cminion.com/v1"
@@ -476,7 +471,7 @@ func writeAppData(clientset *kubernetes.Clientset, nodeDetails map[string][]PodD
 			if err != nil {
 				panic(err.Error())
 			}
-			if b, err := clientset.RESTClient().Post().AbsPath("apis/cminion.com/v1/namespaces/"+newItem.Metadata.Namespace+"/" + tpe).Body(json).DoRaw(); err != nil {
+			if b, err := clientset.RESTClient().Post().AbsPath("apis/cminion.com/v1/namespaces/" + newItem.Metadata.Namespace + "/" + tpe).Body(json).DoRaw(); err != nil {
 				fmt.Println(string(json))
 				fmt.Println(string(b))
 				fmt.Println(nodesMap[i])
@@ -489,19 +484,56 @@ func writeAppData(clientset *kubernetes.Clientset, nodeDetails map[string][]PodD
 func (this *CostItem) WorkOutAverages() {
 	Log("WorkOutAverages for " + this.Metadata.Name)
 	//Remove all hour entries over an hour old
-	today := time.Now()
+	this.Today = time.Now()
 
 	// today.Sub(today.AddDate(0, -1, 0)).Seconds()
-	this.Total.Hour = *Average(this.HistoricData.Hour, today.Add(-3.60000288*1000000000000), 60*60)
-	this.HistoricData.Day = updateNextInterval(this.Total.Day, this.Total.Hour, this.HistoricData.Day, today.Add(-60*60*1000000000000))
-	this.Total.Day = *Average(this.HistoricData.Day, today.AddDate(0, 0, -1), today.Sub(today.AddDate(0, 0, -1)).Seconds())
-	this.HistoricData.Month = updateNextInterval(this.Total.Month, this.Total.Day, this.HistoricData.Month, today.AddDate(0, 0, -1))
-	this.Total.Month = *Average(this.HistoricData.Month, today.AddDate(0, -1, 0), today.Sub(today.AddDate(0, -1, 0)).Seconds())
-	this.HistoricData.Year = updateNextInterval(this.Total.Year, this.Total.Month, this.HistoricData.Year, today.AddDate(0, -1, 0))
-	this.Total.Year = *Average(this.HistoricData.Year, today.AddDate(-1, 0, 0), today.Sub(today.AddDate(-1, 0, 0)).Seconds())
-
+	this.Total.Hour = *Average(this.HistoricData.Hour, this.Today.Add(-3.60000288*1000000000000), 60*60)
+	this.updateNextInterval("hour")
+	this.Total.Day = *Average(this.HistoricData.Day, this.Today.AddDate(0, 0, -1), this.Today.Sub(this.Today.AddDate(0, 0, -1)).Seconds())
+	this.updateNextInterval("day")
+	this.Total.Month = *Average(this.HistoricData.Month, this.Today.AddDate(0, -1, 0), this.Today.Sub(this.Today.AddDate(0, -1, 0)).Seconds())
+	this.updateNextInterval("year")
+	this.Total.Year = *Average(this.HistoricData.Year, this.Today.AddDate(-1, 0, 0), this.Today.Sub(this.Today.AddDate(-1, 0, 0)).Seconds())
+	this.clean()
 }
+func (this *CostItem) clean() {
+	today := time.Now()
+	hourClean := make([]Data, 0)
+	for _, v := range this.HistoricData.Hour {
+		age := time.Unix(v.Time, 0)
+		if age.After(today.Add(-3.60000288 * 1000000000000)) {
+			hourClean = append(hourClean, v)
+		}
+	}
+	this.HistoricData.Hour = hourClean
 
+	dayClean := make([]Data, 0)
+	for _, v := range this.HistoricData.Day {
+		age := time.Unix(v.Time, 0)
+		if age.After(today.AddDate(0, 0, -1)) {
+			dayClean = append(dayClean, v)
+		}
+	}
+	this.HistoricData.Day = dayClean
+
+	monthClean := make([]Data, 0)
+	for _, v := range this.HistoricData.Month {
+		age := time.Unix(v.Time, 0)
+		if age.After(today.AddDate(0, -1, 0)) {
+			monthClean = append(monthClean, v)
+		}
+	}
+	this.HistoricData.Month = monthClean
+
+	yearClean := make([]Data, 0)
+	for _, v := range this.HistoricData.Year {
+		age := time.Unix(v.Time, 0)
+		if age.After(today.AddDate(-1, 0, 0)) {
+			yearClean = append(yearClean, v)
+		}
+	}
+	this.HistoricData.Year = yearClean
+}
 func Average(array []Data, timeCheck time.Time, timeunit float64) *Data {
 	Log("Average")
 	hAvg := &Data{
@@ -510,47 +542,45 @@ func Average(array []Data, timeCheck time.Time, timeunit float64) *Data {
 		Time:    time.Now().Unix(),
 	}
 	startTime := timeCheck
-	for i, v := range array {
+	for _, v := range array {
 		age := time.Unix(v.Time, 0)
 		Log("TIME ")
-		fmt.Printf("age %v\n",age)
-		fmt.Printf("timeCheck %v\n",timeCheck)
-		fmt.Printf("delta %v\n",age.Sub(timeCheck))
-		if age.Before(timeCheck) {
-			Log("Delete")
-			array[i] = Data{}
-		} else {
+		fmt.Printf("age %v\n", age)
+		fmt.Printf("timeCheck %v\n", timeCheck)
+		fmt.Printf("delta %v\n", age.Sub(timeCheck))
+		if age.After(timeCheck) {
 			windowSecs := age.Sub(startTime).Seconds()
 			startTime = age
 			hAvg.Actual = hAvg.Actual + (v.Actual * windowSecs / timeunit)
 			hAvg.Request = hAvg.Request + (v.Request * windowSecs / timeunit)
 		}
 	}
-	cleanTimes(array)
+	Log("*****")
+	fmt.Println(array)
 	return hAvg
 }
 
-func updateNextInterval(d Data, new Data, hd []Data, timeunit time.Time) []Data {
-	Log("updateNextInterval")
-
-	if time.Unix(d.Time, 0).Before(timeunit) {
-		hd = append(hd, new)
+func (this *CostItem) updateNextInterval(unit string) {
+	Log("updateNextInterval "+unit)
+	if (unit == "hour") {
+		if time.Unix(this.Total.Day.Time, 0).Before(this.Today.Add(-60*60*1000000000000)) {
+			this.HistoricData.Day  = append(this.HistoricData.Day, this.Total.Hour)
+		}
 	}
-	return hd
+	if (unit == "day") {
+		if time.Unix(this.Total.Month.Time, 0).Before(this.Today.AddDate(0, 0, -1)) {
+			this.HistoricData.Month  = append(this.HistoricData.Month, this.Total.Day)
+		}
+	}
+	if (unit == "month") {
+		if time.Unix(this.Total.Year.Time, 0).Before(this.Today.AddDate(0, -1, 0)) {
+			this.HistoricData.Year  = append(this.HistoricData.Year, this.Total.Month)
+		}
+	}
 }
 
 func Log(s string) {
 	log.Printf("------------------------------\n")
 	log.Printf("%v\n", s)
 	log.Printf("------------------------------\n")
-}
-
-func cleanTimes(pds  []Data) {
-	for i, pd := range pds {
-		if (pd.Time == 0 ) {
-			pds = pds[:i+copy(pds[i:], pds[i+1:])]
-			cleanTimes(pds)
-			break;
-		}
-	}
 }

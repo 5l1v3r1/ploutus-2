@@ -1,4 +1,4 @@
-FROM debian
+FROM scratch
 LABEL maintainer "cminion@gmail.com"
 COPY ./app/*  /ploutus-linux
-ENTRYPOINT /ploutus-linux
+CMD ["/ploutus-linux"]
